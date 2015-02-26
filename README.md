@@ -16,25 +16,38 @@ val initial:DenseVector[Double] = ...
 val sampler = new SliceSampler(logLikelihood _, initial)
 val samples = sampler.take(10)
 ```
-Returned ```Sample``` instances include the sampled value in addition to the cooresponding log-likelihood.  The sampler constructor can also be configured with the following options:
-* **burnin** Number of samples to throwaway before starting, allowing the sampler time to find a good part of the sample space. This should be increased when there's low confidence in the initial guess given to the sampler. *[default 0]*
+Returned ```Sample``` instances include the sampled value in addition to the cooresponding log-likelihood.  The constructor can also be configured with the following options:
+* **burnin** Number of samples to throwaway before starting, allowing the sampler time to find a good part of the sample space. This should be increased when there is low confidence in the initial guess given to the sampler. *[default 0]*
 * **thin** Thins the sequence by skipping 'thin' samples each iteration. *[default 0]*
-* **componentwise** Whether slices are made independently for each component.  When true, each sample is the result of *n* consecutive slices for each of the *n* dimensions. Otherwise, a single slice in a composite direction is made per sample. *[default true]*
+* **componentwise** Whether slices are made independently for each component.  When true, each sample is the result of *n* consecutive slices for each of the *n* dimensions. Otherwise, a single slice in a composite direction is made for each sample. *[default true]*
 * **stepSize** The size of the interval upon which the bounds of the slice are iteratively determined. *[default 1]*
 
 ## Installation
 
-Since it's currently not available as a published binary artifact, the recommended way to integrate *skive* is to allow SBT to automatically checkout and build the source with your project.  This can easily be configured with your project's ```project/Build.scala``` definition:
+For the time being there's no published binary - the recommended way to integrate *skive* is to allow SBT to automatically checkout and build the source with your project.  This can easily be configured with your project's ```project/Build.scala``` definition:
 
 ```scala
 import sbt._
 
 object MyBuild extends Build {
-    lazy val project = Project("my-project", file("."))
-        .dependsOn(RootProject(uri("git://github.com/wsiegenthaler/skive.git")))
+  lazy val project = Project("my-project", file("."))
+    .dependsOn(RootProject(uri("git://github.com/wsiegenthaler/skive.git")))
 }
 ```
-Be sure to replace ```my-project``` with the name of your project as configured in ```build.sbt```.  Note that this method requires SBT 0.11 or greater.
+Be sure to replace ```my-project``` with the name of your project as configured in ```build.sbt```.
+
+Since *skive* is dependent on Breeze, you'll also need to add that to your project's dependencies:
+```scala
+libraryDependencies  ++= Seq(
+  "org.scalanlp" %% "breeze" % "0.10",
+  "org.scalanlp" %% "breeze-natives" % "0.10")
+
+resolvers ++= Seq(
+  "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/",
+  "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/"
+)
+```
+Note that this method requires SBT 0.11 or greater.
 
 ## References
 
