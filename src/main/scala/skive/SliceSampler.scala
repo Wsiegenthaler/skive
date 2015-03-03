@@ -55,7 +55,8 @@ class SliceSampler(logLikelihood:(DenseVector[Double])=>Double, init:DenseVector
   /** Draws the next sample given the current point and a direction */
   protected def slice(initial:Sample, direction:DenseVector[Double]):Sample = {
     /* The log of the slice height where the height is sampled between 0 and the value of the likelihood at the initial point */
-    val logSliceHeight = log(uniform.draw) + logLikelihood(initial.value) //log(uniform.draw * exp(logLikelihood(initial.sample)))
+    val initialLogLikelihood = initial.logLikelihood.getOrElse(logLikelihood(initial.value))
+    val logSliceHeight = log(uniform.draw) + initialLogLikelihood //log(uniform.draw * exp(logLikelihood(initial.sample)))
 
     /* The distance forwards and backwards composing the bounds of the slice. Initially of width 'stepSize'. */
     val sliceOffset = uniform.draw
