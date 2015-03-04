@@ -1,6 +1,6 @@
 name := "skive"
 
-version := "1.0"
+version := "0.8"
 
 scalaVersion := "2.11.3"
 

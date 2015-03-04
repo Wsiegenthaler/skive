@@ -1,27 +1,28 @@
 package skive
 
+import SliceSampler._
+
 import breeze.linalg.{normalize, *, DenseMatrix, DenseVector}
 import breeze.numerics.log
 import breeze.stats.distributions.Uniform
 import breeze.stats.sampling.standardBasis
 
-
 /**
  * A Monte Carlo Markov Chain for sampling multi-dimensional values given a
  * log-likelihood function over the sample space.
  *
- * @param logLikelihood The log-likelihood over the sample space. Potentially unnormalized.
+ * @param logLikelihoodFunc The log-likelihood over the sample space. Potentially unnormalized.
  * @param init Starting point in the sample space.
  * @param burnin Number of samples to throwaway before starting.
  * @param thin Thins the sequence by skipping 'thin' samples each iteration.
  * @param componentwise Whether slices are made independently for each component.
  * @param stepSize The size of the interval upon which the bounds of the slice are iteratively determined.
  */
-class SliceSampler(logLikelihood:(DenseVector[Double])=>Double, init:DenseVector[Double], burnin:Int=0, thin:Int=0, componentwise:Boolean=true, stepSize:Double=1)
+class SliceSampler(logLikelihoodFunc:LogLikelihood, init:DenseVector[Double], burnin:Int=0, thin:Int=0, componentwise:Boolean=true, stepSize:Double=1)
   extends Iterator[Sample] {
 
   /* The last sampled value or, before 'next' has been called, the starting point. Mutable. */
-  protected var current = Sample(init)
+  protected var current = Sample(init, Right(logLikelihoodFunc))
 
   /* The number of dimensions being sampled */
   protected val dims = init.length
@@ -55,13 +56,12 @@ class SliceSampler(logLikelihood:(DenseVector[Double])=>Double, init:DenseVector
   /** Draws the next sample given the current point and a direction */
   protected def slice(initial:Sample, direction:DenseVector[Double]):Sample = {
     /* The log of the slice height where the height is sampled between 0 and the value of the likelihood at the initial point */
-    val initialLogLikelihood = initial.logLikelihood.getOrElse(logLikelihood(initial.value))
-    val logSliceHeight = log(uniform.draw) + initialLogLikelihood //log(uniform.draw * exp(logLikelihood(initial.sample)))
+    val logSliceHeight = log(uniform.draw) + initial.logLikelihood //log(uniform.draw * exp(initial.logLikelihood))
 
     /* The distance forwards and backwards composing the bounds of the slice. Initially of width 'stepSize'. */
     val sliceOffset = uniform.draw
-    val distanceBounds = ( stepOut(logSliceHeight, direction, upperBound=false, (sliceOffset - 1) * stepSize),
-                           stepOut(logSliceHeight, direction, upperBound=true, sliceOffset * stepSize))
+    val distanceBounds = ( stepOut(initial, logSliceHeight, direction, upperBound=false, (sliceOffset - 1) * stepSize),
+                           stepOut(initial, logSliceHeight, direction, upperBound=true, sliceOffset * stepSize))
 
     /* Find the next sample by selecting a new point in the slice */
     stepIn(initial, direction, logSliceHeight, distanceBounds)
@@ -79,13 +79,12 @@ class SliceSampler(logLikelihood:(DenseVector[Double])=>Double, init:DenseVector
    * @return A new 'Sample' selected from the slice having log-likelihood greater than the current slice height.
    */
   def stepIn(initial:Sample, direction:DenseVector[Double], logSliceHeight:Double, distanceBounds:(Double, Double)):Sample = {
-    val candidateDist = uniform.draw * (distanceBounds._2 - distanceBounds._1) + distanceBounds._1
-    val candidateSample = direction * candidateDist + initial.value
-    val candidateLogLikelihood = logLikelihood(candidateSample)
-    if (logSliceHeight > candidateLogLikelihood) {
-      val newBounds = if (candidateDist < 0) (candidateDist, distanceBounds._2) else (distanceBounds._1, candidateDist)
+    val distance = uniform.draw * (distanceBounds._2 - distanceBounds._1) + distanceBounds._1
+    val candidate = Sample(direction * distance + initial.value, Right(logLikelihoodFunc))
+    if (logSliceHeight > candidate.logLikelihood) {
+      val newBounds = if (distance < 0) (distance, distanceBounds._2) else (distanceBounds._1, distance)
       stepIn(initial, direction, logSliceHeight, newBounds)
-    } else Sample(candidateSample, Some(candidateLogLikelihood))
+    } else candidate
   }
 
   /**
@@ -99,25 +98,28 @@ class SliceSampler(logLikelihood:(DenseVector[Double])=>Double, init:DenseVector
    * @param distance The candidate distance being stepped-out from the current sample point along 'direction'.
    * @return The new distance along our direction known to envelop the slice.
    */
-  protected def stepOut(logSliceHeight:Double, direction:DenseVector[Double], upperBound:Boolean, distance:Double):Double = {
-    if (logSliceHeight < offsetLogLikelihood(direction, distance))
-      stepOut(logSliceHeight, direction, upperBound, distance + (if (upperBound) stepSize else -stepSize))
+  protected def stepOut(initial:Sample, logSliceHeight:Double, direction:DenseVector[Double], upperBound:Boolean, distance:Double):Double = {
+    val candidate = direction * distance + initial.value
+    if (logSliceHeight < logLikelihoodFunc(candidate))
+      stepOut(initial, logSliceHeight, direction, upperBound, distance + (if (upperBound) stepSize else -stepSize))
     else
       distance
   }
-
-  /**
-   * The log-likelihood of a new point offset from the last sampled value.
-   *
-   * @param direction The direction in the sample space to move.
-   * @param distance The distance from the current sample to move along the given direction.
-   */
-  protected def offsetLogLikelihood(direction:DenseVector[Double], distance:Double) =
-    logLikelihood(current.value + direction * distance)
 }
 
 
-/**
- * Represents a sampled value and, optionally, the computed log likelihood
- */
-case class Sample(value:DenseVector[Double], logLikelihood:Option[Double]=None)
+object SliceSampler {
+
+  type LogLikelihood = (DenseVector[Double] => Double)
+
+  /**
+   * Represents a sampled value and, optionally, the computed log likelihood
+   */
+  case class Sample(value:DenseVector[Double], logLikelihoodOrFunc:Either[Double, LogLikelihood]) {
+
+    lazy val logLikelihood = logLikelihoodOrFunc match {
+      case Left(ll) => ll
+      case Right(llFunc) => llFunc(value)
+    }
+  }
+}
