@@ -112,11 +112,8 @@ object SliceSampler {
 
   type LogLikelihood = (DenseVector[Double] => Double)
 
-  /**
-   * Represents a sampled value and, optionally, the computed log likelihood
-   */
+  /** Represents a sampled value and it's log-likelihood */
   case class Sample(value:DenseVector[Double], logLikelihoodOrFunc:Either[Double, LogLikelihood]) {
-
     lazy val logLikelihood = logLikelihoodOrFunc match {
       case Left(ll) => ll
       case Right(llFunc) => llFunc(value)
