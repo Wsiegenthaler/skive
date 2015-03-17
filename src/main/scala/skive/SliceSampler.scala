@@ -3,9 +3,11 @@ package skive
 import SliceSampler._
 
 import breeze.linalg.{normalize, *, DenseMatrix, DenseVector}
-import breeze.numerics.log
+import breeze.numerics.{pow, log}
 import breeze.stats.distributions.Uniform
 import breeze.stats.sampling.standardBasis
+
+import scala.annotation.tailrec
 
 /**
  * A Monte Carlo Markov Chain for sampling multi-dimensional values given a
@@ -16,10 +18,18 @@ import breeze.stats.sampling.standardBasis
  * @param burnin Number of samples to throwaway before starting.
  * @param thin Thins the sequence by skipping 'thin' samples each iteration.
  * @param componentwise Whether slices are made independently for each component.
- * @param stepSize The size of the interval upon which the bounds of the slice are iteratively determined.
+ * @param initStep The initial distance the bounds of the slice are expanded when stepping out.
+ * @param stepBase  The order of magnitude by which the step size increases when stepping out.
+ *                  I.e. a factor of 1 will keep the step size constant, 2 will double the distance
+ *                  at each step).
  */
-class SliceSampler(logLikelihoodFunc:LogLikelihood, init:DenseVector[Double], burnin:Int=0, thin:Int=0, componentwise:Boolean=true, stepSize:Double=1)
+class SliceSampler(logLikelihoodFunc:LogLikelihood, init:DenseVector[Double], burnin:Int=0, thin:Int=0, componentwise:Boolean=true, initStep:Double=1e-1, stepBase:Double=2)
   extends Iterator[Sample] {
+
+  /* Sanity checks */
+  require(burnin >= 0, "'burnin' must positive")
+  require(thin >= 0, "'thin' must positive")
+  require(stepBase >= 1 && stepBase <= 2, "'stepBase' must be between 1 and 2")
 
   /* The last sampled value or, before 'next' has been called, the starting point. Mutable. */
   protected var current = Sample(init, Right(logLikelihoodFunc))
@@ -58,10 +68,10 @@ class SliceSampler(logLikelihoodFunc:LogLikelihood, init:DenseVector[Double], bu
     /* The log of the slice height where the height is sampled between 0 and the value of the likelihood at the initial point */
     val logSliceHeight = log(uniform.draw) + initial.logLikelihood //log(uniform.draw * exp(initial.logLikelihood))
 
-    /* The distance forwards and backwards composing the bounds of the slice. Initially of width 'stepSize'. */
+    /* The distance forwards and backwards composing the bounds of the slice */
     val sliceOffset = uniform.draw
-    val distanceBounds = ( stepOut(initial, logSliceHeight, direction, upperBound=false, (sliceOffset - 1) * stepSize),
-                           stepOut(initial, logSliceHeight, direction, upperBound=true, sliceOffset * stepSize))
+    val distanceBounds = ( stepOut(initial, logSliceHeight, direction, upperBound=false, (sliceOffset - 1) * initStep),
+                           stepOut(initial, logSliceHeight, direction, upperBound=true, sliceOffset * initStep))
 
     /* Find the next sample by selecting a new point in the slice */
     stepIn(initial, direction, logSliceHeight, distanceBounds)
@@ -78,32 +88,48 @@ class SliceSampler(logLikelihoodFunc:LogLikelihood, init:DenseVector[Double], bu
    * @param distanceBounds The lower and upper bounds of the distance being sampled between.
    * @return A new 'Sample' selected from the slice having log-likelihood greater than the current slice height.
    */
-  def stepIn(initial:Sample, direction:DenseVector[Double], logSliceHeight:Double, distanceBounds:(Double, Double)):Sample = {
-    val distance = uniform.draw * (distanceBounds._2 - distanceBounds._1) + distanceBounds._1
-    val candidate = Sample(direction * distance + initial.value, Right(logLikelihoodFunc))
-    if (logSliceHeight > candidate.logLikelihood) {
-      val newBounds = if (distance < 0) (distance, distanceBounds._2) else (distanceBounds._1, distance)
-      stepIn(initial, direction, logSliceHeight, newBounds)
-    } else candidate
+  protected def stepIn(initial:Sample, direction:DenseVector[Double], logSliceHeight:Double, distanceBounds:(Double, Double)):Sample = {
+    @tailrec def _stepIn(_distanceBounds:(Double, Double)):Sample = {
+      val distance = uniform.draw * (_distanceBounds._2 - _distanceBounds._1) + _distanceBounds._1
+      val candidate = Sample(direction * distance + initial.value, Right(logLikelihoodFunc))
+      if (logSliceHeight <= candidate.logLikelihood)
+        candidate
+      else
+        _stepIn(if (distance < 0) (distance, _distanceBounds._2) else (_distanceBounds._1, distance))
+    }
+    _stepIn(distanceBounds)
   }
 
   /**
-   * Recursively expands a bound of the slice until it envelopes the width of the
+   * Expands a bound of the slice until it envelopes the width of the
    * log-likelihood function at the slice height.
    *
    * @param logSliceHeight The log of the height at which we're slicing.
    * @param direction The direction in the sample space of the slice.
    * @param upperBound Whether we're expanding the upper or lower bound along 'direction'.
    *                   Unless 'distance' is zero this should match it's sign.
-   * @param distance The candidate distance being stepped-out from the current sample point along 'direction'.
+   * @param offset The initial distance being stepped-out from the current sample point along 'direction'.
    * @return The new distance along our direction known to envelop the slice.
    */
-  protected def stepOut(initial:Sample, logSliceHeight:Double, direction:DenseVector[Double], upperBound:Boolean, distance:Double):Double = {
-    val candidate = direction * distance + initial.value
-    if (logSliceHeight < logLikelihoodFunc(candidate))
-      stepOut(initial, logSliceHeight, direction, upperBound, distance + (if (upperBound) stepSize else -stepSize))
-    else
-      distance
+  protected def stepOut(initial:Sample, logSliceHeight:Double, direction:DenseVector[Double], upperBound:Boolean, offset:Double):Double = {
+    def didOverflow(candidate:DenseVector[Double]) = candidate.findAll(v => v.isInfinite).size > 0
+    @tailrec def _stepOut(stepsTaken:Int=0):Double = {
+      val distance = offset + stepSize(stepsTaken, upperBound)
+      val candidate = direction * distance + initial.value
+      if (didOverflow(candidate))
+        offset + stepSize(stepsTaken - 1, upperBound) // Revert to last distance if overflow occurred
+      else if (logSliceHeight >= logLikelihoodFunc(candidate))
+        distance
+      else
+        _stepOut(stepsTaken + 1)
+    }
+    _stepOut()
+  }
+  
+  /** Determines the distance to step given the initial step size and the number of steps so far. */
+  protected def stepSize(stepsTaken:Int, upperBound:Boolean) = {
+    val d = initStep * pow(stepBase, stepsTaken)
+    if (upperBound) d else -d
   }
 }
 

@@ -20,7 +20,8 @@ Returned ```Sample``` instances include the sampled value in addition to the coo
 * **burnin** Number of samples to throwaway before starting, allowing the sampler time to find a good part of the sample space. This should be increased when there is low confidence in the initial guess given to the sampler. *[default 0]*
 * **thin** Thins the sequence by skipping 'thin' samples each iteration. *[default 0]*
 * **componentwise** Whether slices are made independently for each component.  When true, each sample is the result of *n* consecutive slices for each of the *n* dimensions. Otherwise, a single slice in a composite direction is made for each sample. *[default true]*
-* **stepSize** The size of the interval upon which the bounds of the slice are iteratively determined. *[default 1]*
+* **initStep** The initial distance the bounds of the slice are expanded when stepping out. *[default 1e-1]*
+* **stepBase** The order of magnitude by which the step size increases when stepping out (i.e. a factor of 1 will keep the step size constant, 2 will double the distance at each step). *[default 2]*
 
 ## Installation
 
