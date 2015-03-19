@@ -26,11 +26,6 @@ import scala.annotation.tailrec
 class SliceSampler(logLikelihoodFunc:LogLikelihood, init:DenseVector[Double], burnin:Int=0, thin:Int=0, componentwise:Boolean=true, initStep:Double=1e-1, stepBase:Double=2)
   extends Iterator[Sample] {
 
-  /* Sanity checks */
-  require(burnin >= 0, "'burnin' must positive")
-  require(thin >= 0, "'thin' must positive")
-  require(stepBase >= 1 && stepBase <= 2, "'stepBase' must be between 1 and 2")
-
   /* The last sampled value or, before 'next' has been called, the starting point. Mutable. */
   protected var current = Sample(init, Right(logLikelihoodFunc))
 
@@ -38,6 +33,12 @@ class SliceSampler(logLikelihoodFunc:LogLikelihood, init:DenseVector[Double], bu
   protected val dims = init.length
 
   protected val uniform = new Uniform(0d, 1d)
+
+  /* Sanity checks */
+  require(burnin >= 0, "SliceSampler parameter 'burnin' must be zero or greater")
+  require(thin >= 0, "SliceSampler parameter 'thin' must be zero or greater")
+  require(stepBase >= 1 && stepBase <= 2, "'stepBase' must be between [1, 2]")
+  require(!current.logLikelihood.isNegInfinity, "SliceSampler parameter 'init' must have log-likelihood greater than -infinity ")
 
   /* Move to a good part of the sample space by burning some samples first */
   for (i <- 1 to burnin) sample
@@ -69,9 +70,10 @@ class SliceSampler(logLikelihoodFunc:LogLikelihood, init:DenseVector[Double], bu
     val logSliceHeight = log(uniform.draw) + initial.logLikelihood //log(uniform.draw * exp(initial.logLikelihood))
 
     /* The distance forwards and backwards composing the bounds of the slice */
-    val sliceOffset = uniform.draw
-    val distanceBounds = ( stepOut(initial, logSliceHeight, direction, upperBound=false, (sliceOffset - 1) * initStep),
-                           stepOut(initial, logSliceHeight, direction, upperBound=true, sliceOffset * initStep))
+    val boundOffset = uniform.draw
+    val distanceBounds = (
+      stepOut(initial, logSliceHeight, direction, upperBound=false, (boundOffset - 1) * initStep),
+      stepOut(initial, logSliceHeight, direction, upperBound=true, boundOffset * initStep))
 
     /* Find the next sample by selecting a new point in the slice */
     stepIn(initial, direction, logSliceHeight, distanceBounds)
@@ -115,10 +117,10 @@ class SliceSampler(logLikelihoodFunc:LogLikelihood, init:DenseVector[Double], bu
     def didOverflow(candidate:DenseVector[Double]) = candidate.findAll(v => v.isInfinite).size > 0
     @tailrec def _stepOut(stepsTaken:Int=0):Double = {
       val distance = offset + stepSize(stepsTaken, upperBound)
-      val candidate = direction * distance + initial.value
-      if (didOverflow(candidate))
+      val candidate = Sample(direction * distance + initial.value, Right(logLikelihoodFunc))
+      if (didOverflow(candidate.value))
         offset + stepSize(stepsTaken - 1, upperBound) // Revert to last distance if overflow occurred
-      else if (logSliceHeight >= logLikelihoodFunc(candidate))
+      else if (logSliceHeight >= candidate.logLikelihood)
         distance
       else
         _stepOut(stepsTaken + 1)
@@ -142,7 +144,10 @@ object SliceSampler {
   case class Sample(value:DenseVector[Double], logLikelihoodOrFunc:Either[Double, LogLikelihood]) {
     lazy val logLikelihood = logLikelihoodOrFunc match {
       case Left(ll) => ll
-      case Right(llFunc) => llFunc(value)
+      case Right(llFunc) => {
+        val ll = llFunc(value)
+        if (ll.isNaN) Double.NegativeInfinity else ll  // Treat NaNs as having zero likelihood
+      }
     }
   }
 }
