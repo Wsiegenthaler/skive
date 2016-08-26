@@ -3,7 +3,15 @@
 
 Slice sampling is a simple but effective MCMC method for drawing pseudo-random values from a statistical distribution.  Given an evaluable log-pdf of a random variable, or any log-likelihood proportional to the density, *skive* will generate random samples which reflect the shape of the distribution being sampled from.  Compared to other methods, slice sampling is often more efficient and generally performs well without careful tuning.
 
+
 ## Usage
+
+Add *skive* to your sbt dependencies:
+```scala
+libraryDependencies += "com.github.wsiegenthaler" % "skive_2.11" % "0.8.1"
+
+resolvers += "releases" at "https://oss.sonatype.org/content/repositories/releases"
+```
 
 *skive* provides a simple ```Iterator[Sample]``` interface for obtaining samples.  Constructing a sampler requires only a function proportional to the log of the density being sampled and an initial guess from the sample space:
 ```scala
@@ -23,32 +31,6 @@ Returned ```Sample``` instances include the sampled value in addition to the coo
 * **initStep** The initial distance the bounds of the slice are expanded when stepping out. *[default 1e-1]*
 * **stepBase** The order of magnitude by which the step size increases when stepping out (i.e. a factor of 1 will keep the step size constant, 2 will double the distance at each step). *[default 2]*
 
-## Installation
-
-For the time being there's no published binary - the recommended way to integrate *skive* is to allow SBT to automatically checkout and build the source with your project.  This can easily be configured with your project's ```project/Build.scala``` definition:
-
-```scala
-import sbt._
-
-object MyBuild extends Build {
-  lazy val project = Project("my-project", file("."))
-    .dependsOn(RootProject(uri("git://github.com/wsiegenthaler/skive.git")))
-}
-```
-Be sure to replace ```my-project``` with the name of your project as configured in ```build.sbt```.
-
-Since *skive* is dependent on Breeze, you'll also need to add that to your project's dependencies:
-```scala
-libraryDependencies  ++= Seq(
-  "org.scalanlp" %% "breeze" % "0.10",
-  "org.scalanlp" %% "breeze-natives" % "0.10")
-
-resolvers ++= Seq(
-  "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/",
-  "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/"
-)
-```
-Note that this method requires SBT 0.11 or greater.
 
 ## References
 
@@ -59,6 +41,7 @@ Note that this method requires SBT 0.11 or greater.
 * ["Slice Sampling."](http://en.wikipedia.org/wiki/Slice_sampling) Wikipedia. Wikimedia Foundation, n.d. Web. 26 Feb. 2015.
 
 * HIPS/Spearmint. Computer software. GitHub. N.p., n.d. Web. 3 Feb. 2015. <http://github.com/HIPS/Spearmint>.
+
 
 ## License
 
