@@ -2,16 +2,18 @@ name := "skive"
 
 organization := "com.github.wsiegenthaler"
 
-version := "0.8.1"
+version := "0.8.2"
 
-scalaVersion := "2.11.8"
+scalaVersion := "2.12.1"
+
+crossScalaVersions := Seq("2.12.1", "2.11.8")
 
 homepage := Some(url("http://github.com/wsiegenthaler/skive"))
 
 libraryDependencies  ++= Seq(
-  "org.scalanlp" %% "breeze" % "0.12",
-  "org.scalanlp" %% "breeze-natives" % "0.12",
-  "org.scalanlp" %% "breeze-viz" % "0.12")
+  "org.scalanlp" %% "breeze" % "0.13",
+  "org.scalanlp" %% "breeze-natives" % "0.13",
+  "org.scalanlp" %% "breeze-viz" % "0.13")
 
 resolvers ++= Seq(
   "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/",
