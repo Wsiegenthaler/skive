@@ -8,7 +8,7 @@ Slice sampling is a simple but effective MCMC method for drawing pseudo-random v
 
 Add *skive* to your sbt dependencies:
 ```scala
-libraryDependencies += "com.github.wsiegenthaler" % "skive_2.12" % "0.8.1"
+libraryDependencies += "com.github.wsiegenthaler" % "skive_2.12" % "0.8.2"
 
 resolvers += "releases" at "https://oss.sonatype.org/content/repositories/releases"
 ```
