@@ -1,6 +1,9 @@
 # skive
 *A multivariate slice sampler for Scala*
 
+[![Build Status](https://travis-ci.org/Wsiegenthaler/skive.svg?branch=master)](https://travis-ci.org/Wsiegenthaler/skive)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
 Slice sampling is a simple but effective MCMC method for drawing pseudo-random values from a statistical distribution.  Given an evaluable log-pdf of a random variable, or any log-likelihood proportional to the density, *skive* will generate random samples which reflect the shape of the distribution being sampled from.  Compared to other methods, slice sampling is often more efficient and generally performs well without careful tuning.
 
 
