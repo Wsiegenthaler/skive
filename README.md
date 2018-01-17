@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/Wsiegenthaler/skive.svg?branch=master)](https://travis-ci.org/Wsiegenthaler/skive)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FWsiegenthaler%2Fskive.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FWsiegenthaler%2Fskive?ref=badge_shield)
 
 *A multivariate slice sampler for Scala*
 
@@ -52,3 +53,6 @@ Returned ```Sample``` instances include the sampled value in addition to the coo
 Everything in this repo is BSD License unless otherwise specified
 
 skive (c) 2015 Weston Siegenthaler
+
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FWsiegenthaler%2Fskive.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2FWsiegenthaler%2Fskive?ref=badge_large)
